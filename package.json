@@ -1,0 +1,27 @@
+{
+  "name": "boiler-bay",
+  "version": "1.0.0",
+  "description": "Streaming JavaScript client for Boiler Bay",
+  "main": "index.js",
+  "scripts": {
+    "test": "babel-node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/mpj/boiler-bay-client-js.git"
+  },
+  "author": "Mattias Petter Johansson <mpj@mpj.me>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mpj/boiler-bay-client-js/issues"
+  },
+  "homepage": "https://github.com/mpj/boiler-bay-client-js#readme",
+  "devDependencies": {
+    "babel": "^5.8.21",
+    "sinon": "^1.15.4",
+    "tape": "^4.1.0"
+  },
+  "dependencies": {
+    "highland": "^2.5.1"
+  }
+}

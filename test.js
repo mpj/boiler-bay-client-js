@@ -2,8 +2,9 @@ import test from 'tape'
 import fn from './index'
 import _ from 'highland'
 import sinon from 'sinon'
+import 'babel/polyfill'
 
-test('connection',  (t) => {
+test('connection', (t) => {
   t.plan(2)
   let world = makeWorld()
   world.createClient()
@@ -16,13 +17,35 @@ test('write', (t) => {
   let world = makeWorld()
   let str = world.createClient()
   world.sendMessageToClient()
-  t.ok(world.wasMessageSent())
+  world.wasMessageSent().then(t.ok)
+})
+
+test('read', (t) => {
+  t.plan(2)
+  let world = makeWorld()
+  let client = world.createClient()
+
+
+
+  _(client)
+    .filter(x => 'hej' === x).head().map(() => true).each(t.ok)
+  world.state.netClient.write('msg hej')
+  setTimeout(function() {
+    world.sentToNetClient(
+      'consume ' +
+      world.state.topic + ' ' +
+      world.state.generatedUUID.replace(/\-/g,'') + ' ' +
+      'smallest\n'
+    ).then(t.ok)
+  },10)
+
+
 })
 
 let makeWorld = () => {
   let world = {}
 
-  world.state = {
+  let state = world.state = {
     port: 4444,
     host: '192.168.99.100',
     topic: 'mytopic',
@@ -34,35 +57,48 @@ let makeWorld = () => {
       },
       uuid: sinon.stub()
     },
-    netClient: {
-      setEncoding: sinon.stub(),
-      write: sinon.stub()
-    }
+    netClient: _()
   }
+  state.netClient.setEncoding = sinon.stub()
+
 
   world.createClient = () => {
-    world.state.deps.net.connect
-      .withArgs(world.state.port, world.state.host)
-      .returns(world.state.netClient)
-    world.state.deps.uuid.returns(world.state.generatedUUID)
-    world.state.client = fn(world.state.deps, {
-      host: world.state.host,
-      port: world.state.port
-    }, world.state.topic)
-    return world.state.client
+    state.deps.net.connect
+      .withArgs(state.port, state.host)
+      .returns(state.netClient)
+    state.deps.uuid.returns(state.generatedUUID)
+    state.client = fn(state.deps, {
+      host: state.host,
+      port: state.port
+    }, state.topic)
+    return state.client
   }
   world.sendMessageToClient = () =>
-    _([world.state.messageToSend]).pipe(world.state.client)
+    _([state.messageToSend]).pipe(state.client)
+
   world.wasMessageSent = () =>
-    world.state.netClient.write.calledWith(
-      'send ' + world.state.topic + ' '+
-      world.state.generatedUUID.replace(/\-/g,'') +
-      ' '+world.state.messageToSend+'\n')
+    world.sentToNetClient(
+      'send ' + state.topic + ' ' +
+      state.generatedUUID.replace(/\-/g,'') +
+      ' ' + state.messageToSend+'\n')
+
+  world.sentToNetClient = (expected) =>
+    new Promise(resolve => {
+      let timeout = setTimeout(() => reject(), 200)
+      state
+        .netClient
+        .filter(x => expected === x)
+        .each(() => {
+          clearTimeout(timeout)
+          resolve(true)
+        })
+    })
 
   world.connectedWithRightParameters = () =>
-    world.state.deps.net.connect.calledWith(world.state.port, world.state.host)
+    state.deps.net.connect.calledWith(state.port, state.host)
+
   world.didSetCorrectEncoding = () =>
-    world.state.netClient.setEncoding.calledWith('utf8')
+    state.netClient.setEncoding.calledWith('utf8')
 
 
   return world

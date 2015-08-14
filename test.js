@@ -24,35 +24,27 @@ test('write', (t) => {
 
 test('read (replay)', (t) => {
   t.plan(2)
-  let act = makeAct()
+  let act = makeAct({
+    command: 'replay',
+    expectedOffset: 'smallest'
+  })
   act.action()
   act.mocks.serverConnection.push('msg hej')
   act.output.assertReceived('hej', t.pass())
-  act.mocks.serverConnection.assertReceived(
-    'consume ' +
-    act.scene.topic + ' ' +
-    act.scene.generatedUUID.replace(/\-/g,'') + ' ' +
-    'smallest\n',
-    t.pass
-  )
+  act.assertReceivedCorrectConsume(t.pass)
 })
 
 
 test('read (play)', (t) => {
   t.plan(2)
   let act = makeAct({
-    command: 'play'
+    command: 'play',
+    expectedOffset: 'largest'
   })
   act.action()
   act.mocks.serverConnection.push('msg hej')
   act.output.assertReceived('hej', t.pass())
-  act.mocks.serverConnection.assertReceived(
-    'consume ' +
-    act.scene.topic + ' ' +
-    act.scene.generatedUUID.replace(/\-/g,'') + ' ' +
-    'largest\n',
-    t.pass
-  )
+  act.assertReceivedCorrectConsume(t.pass)
 })
 
 let makeAct = (constructorScene) => {
@@ -65,7 +57,8 @@ let makeAct = (constructorScene) => {
     topic: 'mytopic',
     generatedUUID: '6c84fb90-12c4-11e1-840d-7b25c5ee775a',
     messageToSend: 'whut',
-    command: 'replay'
+    command: 'replay',
+    expectedOffset: 'smallest'
   }, constructorScene)
 
   act.mocks = {
@@ -110,6 +103,15 @@ let makeAct = (constructorScene) => {
       act.scene.generatedUUID.replace(/\-/g,'') +
       ' ' + act.scene.messageToSend+'\n',
       done)
+
+  act.assertReceivedCorrectConsume = (done) =>
+    act.mocks.serverConnection.assertReceived(
+      'consume ' +
+      act.scene.topic + ' ' +
+      act.scene.generatedUUID.replace(/\-/g,'') + ' ' +
+      act.scene.expectedOffset + '\n',
+      done
+    )
 
   act.connectedWithRightParameters = () =>
     act.mocks.net.connect.calledWith(act.scene.port, act.scene.host)

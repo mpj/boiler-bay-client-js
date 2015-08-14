@@ -7,30 +7,30 @@ import 'babel/polyfill'
 
 test('connection', (t) => {
   t.plan(2)
-  let world = makeWorld()
-  world.createClient()
-  t.ok(world.connectedWithRightParameters())
-  t.ok(world.didSetCorrectEncoding())
+  let act = makeAct()
+  act.createClient()
+  t.ok(act.connectedWithRightParameters())
+  t.ok(act.didSetCorrectEncoding())
 })
 
 test('write', (t) => {
   t.plan(1)
-  let world = makeWorld()
-  let str = world.createClient()
-  world.sendMessageToClient()
-  world.assertMessageSent(t.pass)
+  let act = makeAct()
+  let str = act.createClient()
+  act.sendMessageToClient()
+  act.assertMessageSent(t.pass)
 })
 
 test('read (replay)', (t) => {
   t.plan(2)
-  let world = makeWorld()
-  world.createClient()
-  world.state.netClient.push('msg hej')
-  world.state.output.assertReceived('hej', t.pass())
-  world.state.netClient.assertReceived(
+  let act = makeAct()
+  act.createClient()
+  act.state.netClient.push('msg hej')
+  act.state.output.assertReceived('hej', t.pass())
+  act.state.netClient.assertReceived(
     'consume ' +
-    world.state.topic + ' ' +
-    world.state.generatedUUID.replace(/\-/g,'') + ' ' +
+    act.state.topic + ' ' +
+    act.state.generatedUUID.replace(/\-/g,'') + ' ' +
     'smallest\n',
     t.pass
   )
@@ -39,24 +39,24 @@ test('read (replay)', (t) => {
 
 test('read (play)', (t) => {
   t.plan(2)
-  let world = makeWorld()
-  world.state.command = 'play'
-  world.createClient()
-  world.state.netClient.push('msg hej')
-  world.state.output.assertReceived('hej', t.pass())
-  world.state.netClient.assertReceived(
+  let act = makeAct()
+  act.state.command = 'play'
+  act.createClient()
+  act.state.netClient.push('msg hej')
+  act.state.output.assertReceived('hej', t.pass())
+  act.state.netClient.assertReceived(
     'consume ' +
-    world.state.topic + ' ' +
-    world.state.generatedUUID.replace(/\-/g,'') + ' ' +
+    act.state.topic + ' ' +
+    act.state.generatedUUID.replace(/\-/g,'') + ' ' +
     'largest\n',
     t.pass
   )
 })
 
-let makeWorld = () => {
-  let world = {}
+let makeAct = (opts) => {
+  let act = {}
 
-  let state = world.state = {
+  let state = act.state = {
     port: 4444,
     host: '192.168.99.100',
     topic: 'mytopic',
@@ -74,7 +74,7 @@ let makeWorld = () => {
   }
   state.netClient.setEncoding = sinon.stub()
 
-  world.createClient = () => {
+  act.createClient = () => {
     state.deps.net.connect
       .withArgs(state.port, state.host)
       .returns(state.netClient)
@@ -86,22 +86,22 @@ let makeWorld = () => {
     state.client.pipe(state.output)
     return state.client
   }
-  world.sendMessageToClient = () =>
+  act.sendMessageToClient = () =>
     _([state.messageToSend]).pipe(state.client)
 
-  world.assertMessageSent = (done) =>
+  act.assertMessageSent = (done) =>
     state.netClient.assertReceived(
       'send ' + state.topic + ' ' +
       state.generatedUUID.replace(/\-/g,'') +
       ' ' + state.messageToSend+'\n',
       done)
 
-  world.connectedWithRightParameters = () =>
+  act.connectedWithRightParameters = () =>
     state.deps.net.connect.calledWith(state.port, state.host)
 
-  world.didSetCorrectEncoding = () =>
+  act.didSetCorrectEncoding = () =>
     state.netClient.setEncoding.calledWith('utf8')
 
 
-  return world
+  return act
 }

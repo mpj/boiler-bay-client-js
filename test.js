@@ -37,6 +37,24 @@ test('read (replay)', (t) => {
   )
 })
 
+
+test('read (play)', (t) => {
+  t.plan(2)
+  let world = makeWorld()
+  world.state.command = 'play'
+  let out = liar()
+  world.createClient().pipe(out)
+  world.state.netClient.push('msg hej')
+  out.assertReceived('hej', t.pass())
+  world.state.netClient.assertReceived(
+    'consume ' +
+    world.state.topic + ' ' +
+    world.state.generatedUUID.replace(/\-/g,'') + ' ' +
+    'largest\n',
+    t.pass
+  )
+})
+
 let makeWorld = () => {
   let world = {}
 

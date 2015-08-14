@@ -18,7 +18,8 @@ export default (deps, opts, command, topic) => {
       conn.write(
         'consume ' + topic + ' ' +
         deps.uuid().replace(/\-/g,'') + ' ' +
-        'smallest\n')
+        (command === 'replay' ? 'smallest' : 'largest') +
+        '\n')
 
       _(conn).pull(function (err, x) {
         push(x.replace('msg ',''))

@@ -1,7 +1,7 @@
 import _ from 'highland'
 import duplex from './object-duplex'
 
-export default (deps, opts, topic) => {
+export default (deps, opts, command, topic) => {
   let conn = deps.net.connect(opts.port, opts.host)
   conn.setEncoding('utf8')
 

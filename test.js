@@ -1,5 +1,5 @@
 import test from 'tape'
-import fn from './index'
+import subject from './index'
 import _ from 'highland'
 import sinon from 'sinon'
 import liar from './liar'
@@ -21,7 +21,7 @@ test('write', (t) => {
   world.assertMessageSent(t.pass)
 })
 
-test('read', (t) => {
+test('read (replay)', (t) => {
   t.plan(2)
   let world = makeWorld()
   let out = liar()
@@ -46,6 +46,7 @@ let makeWorld = () => {
     topic: 'mytopic',
     generatedUUID: '6c84fb90-12c4-11e1-840d-7b25c5ee775a',
     messageToSend: 'whut',
+    command: 'replay',
     deps: {
       net: {
         connect: sinon.stub()
@@ -61,10 +62,10 @@ let makeWorld = () => {
       .withArgs(state.port, state.host)
       .returns(state.netClient)
     state.deps.uuid.returns(state.generatedUUID)
-    state.client = fn(state.deps, {
+    state.client = subject(state.deps, {
       host: state.host,
       port: state.port
-    }, state.topic)
+    }, state.command, state.topic)
     return state.client
   }
   world.sendMessageToClient = () =>

@@ -24,10 +24,9 @@ test('write', (t) => {
 test('read (replay)', (t) => {
   t.plan(2)
   let world = makeWorld()
-  let out = liar()
-  world.createClient().pipe(out)
+  world.createClient()
   world.state.netClient.push('msg hej')
-  out.assertReceived('hej', t.pass())
+  world.state.output.assertReceived('hej', t.pass())
   world.state.netClient.assertReceived(
     'consume ' +
     world.state.topic + ' ' +
@@ -42,10 +41,9 @@ test('read (play)', (t) => {
   t.plan(2)
   let world = makeWorld()
   world.state.command = 'play'
-  let out = liar()
-  world.createClient().pipe(out)
+  world.createClient()
   world.state.netClient.push('msg hej')
-  out.assertReceived('hej', t.pass())
+  world.state.output.assertReceived('hej', t.pass())
   world.state.netClient.assertReceived(
     'consume ' +
     world.state.topic + ' ' +
@@ -65,6 +63,7 @@ let makeWorld = () => {
     generatedUUID: '6c84fb90-12c4-11e1-840d-7b25c5ee775a',
     messageToSend: 'whut',
     command: 'replay',
+    output: liar(),
     deps: {
       net: {
         connect: sinon.stub()
@@ -84,6 +83,7 @@ let makeWorld = () => {
       host: state.host,
       port: state.port
     }, state.command, state.topic)
+    state.client.pipe(state.output)
     return state.client
   }
   world.sendMessageToClient = () =>

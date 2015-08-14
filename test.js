@@ -2,6 +2,7 @@ import test from 'tape'
 import fn from './index'
 import _ from 'highland'
 import sinon from 'sinon'
+import liar from './liar'
 import 'babel/polyfill'
 
 test('connection', (t) => {
@@ -17,29 +18,23 @@ test('write', (t) => {
   let world = makeWorld()
   let str = world.createClient()
   world.sendMessageToClient()
-  world.wasMessageSent().then(t.ok)
+  world.assertMessageSent(t.pass)
 })
 
 test('read', (t) => {
   t.plan(2)
   let world = makeWorld()
-  let client = world.createClient()
-
-
-
-  _(client)
-    .filter(x => 'hej' === x).head().map(() => true).each(t.ok)
-  world.state.netClient.write('msg hej')
-  setTimeout(function() {
-    world.sentToNetClient(
-      'consume ' +
-      world.state.topic + ' ' +
-      world.state.generatedUUID.replace(/\-/g,'') + ' ' +
-      'smallest\n'
-    ).then(t.ok)
-  },10)
-
-
+  let out = liar()
+  world.createClient().pipe(out)
+  world.state.netClient.push('msg hej')
+  out.assertReceived('hej', t.pass())
+  world.state.netClient.assertReceived(
+    'consume ' +
+    world.state.topic + ' ' +
+    world.state.generatedUUID.replace(/\-/g,'') + ' ' +
+    'smallest\n',
+    t.pass
+  )
 })
 
 let makeWorld = () => {
@@ -57,10 +52,9 @@ let makeWorld = () => {
       },
       uuid: sinon.stub()
     },
-    netClient: _()
+    netClient: liar()
   }
   state.netClient.setEncoding = sinon.stub()
-
 
   world.createClient = () => {
     state.deps.net.connect
@@ -76,23 +70,12 @@ let makeWorld = () => {
   world.sendMessageToClient = () =>
     _([state.messageToSend]).pipe(state.client)
 
-  world.wasMessageSent = () =>
-    world.sentToNetClient(
+  world.assertMessageSent = (done) =>
+    state.netClient.assertReceived(
       'send ' + state.topic + ' ' +
       state.generatedUUID.replace(/\-/g,'') +
-      ' ' + state.messageToSend+'\n')
-
-  world.sentToNetClient = (expected) =>
-    new Promise(resolve => {
-      let timeout = setTimeout(() => reject(), 200)
-      state
-        .netClient
-        .filter(x => expected === x)
-        .each(() => {
-          clearTimeout(timeout)
-          resolve(true)
-        })
-    })
+      ' ' + state.messageToSend+'\n',
+      done)
 
   world.connectedWithRightParameters = () =>
     state.deps.net.connect.calledWith(state.port, state.host)

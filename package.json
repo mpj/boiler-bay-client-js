@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "highland": "^2.5.1",
-    "mout": "^0.11.0"
+    "mout": "^0.11.0",
+    "uuid": "^2.0.1"
   }
 }

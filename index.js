@@ -5,7 +5,9 @@ export default (deps, opts, command, topic) => {
   let conn = deps.net.connect(opts.port, opts.host)
   conn.setEncoding('utf8')
 
-  return duplex(
+  let consumeSent = false
+
+  let api = duplex(
     (x, cb) => {
       conn.write(
         'send ' +
@@ -15,15 +17,23 @@ export default (deps, opts, command, topic) => {
       cb()
     },
     (push) => {
-      conn.write(
-        'consume ' + topic + ' ' +
-        deps.uuid().replace(/\-/g,'') + ' ' +
-        (command === 'replay' ? 'smallest' : 'largest') +
-        '\n')
-
+      if(!consumeSent) {
+        consumeSent = true
+        conn.write(
+          'consume ' + topic + ' ' +
+          deps.uuid().replace(/\-/g,'') + ' ' +
+          (command === 'replay' ? 'smallest' : 'largest') +
+          '\n')
+      }
+      
       _(conn).pull(function (err, x) {
         push(x.replace('msg ',''))
       })
     }
   )
+
+  api.ack = () =>
+    conn.write('ack\n')
+
+  return api
 }

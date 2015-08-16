@@ -3,23 +3,30 @@ import subject from './index'
 import _ from 'highland'
 import sinon from 'sinon'
 import liar from './liar'
-import 'babel/polyfill'
 import merge from 'mout/object/merge'
+
+
+// TODO
+// * try for real
+// * coerce errors
+// * prevent writing pre-ready
+// * maybe: break out liar
 
 test('connection', (t) => {
   t.plan(2)
   let act = makeAct()
-  act.action()
+  act.begin()
   t.ok(act.connectedWithRightParameters())
   t.ok(act.didSetCorrectEncoding())
 })
 
 test('write', (t) => {
-  t.plan(1)
+  t.plan(2)
   let act = makeAct()
-  let str = act.action()
+  let str = act.beginNoRead()
   act.sendMessageToClient()
   act.assertMessageSent(t.pass)
+  act.mocks.serverConnection.assertNotReceived(/consume/, t.pass)
 })
 
 test('read (replay)', (t) => {
@@ -28,7 +35,7 @@ test('read (replay)', (t) => {
     command: 'replay',
     expectedOffset: 'smallest'
   })
-  act.action()
+  act.begin()
   act.mocks.serverConnection.push('msg hej')
   act.output.assertReceived('hej', t.pass())
   act.assertReceivedCorrectConsume(t.pass)
@@ -41,10 +48,18 @@ test('read (play)', (t) => {
     command: 'play',
     expectedOffset: 'largest'
   })
-  act.action()
+  act.begin()
   act.mocks.serverConnection.push('msg hej')
   act.output.assertReceived('hej', t.pass())
   act.assertReceivedCorrectConsume(t.pass)
+})
+
+test('ack', (t) => {
+  t.plan(1)
+  let act = makeAct()
+  let api = act.begin()
+  api.ack()
+  act.mocks.serverConnection.assertReceived('ack\n', t.pass)
 })
 
 let makeAct = (constructorScene) => {
@@ -73,8 +88,7 @@ let makeAct = (constructorScene) => {
 
   act.output = liar()
 
-  act.action = () => {
-
+  act.beginNoRead = () => {
     act.mocks.net.connect
       .withArgs(act.scene.port, act.scene.host)
       .returns(act.mocks.serverConnection)
@@ -88,6 +102,13 @@ let makeAct = (constructorScene) => {
       host: act.scene.host,
       port: act.scene.port
     }, act.scene.command, act.scene.topic)
+
+    return act.instance
+  }
+
+  act.begin = () => {
+
+    act.beginNoRead()
 
     act.instance.pipe(act.output)
 

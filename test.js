@@ -54,6 +54,19 @@ test('read (play)', (t) => {
   act.assertReceivedCorrectConsume(t.pass)
 })
 
+test('read (play, multiple)', (t) => {
+  t.plan(2)
+  let act = makeAct({
+    command: 'play',
+    expectedOffset: 'largest'
+  })
+  act.begin()
+  act.mocks.serverConnection.push('msg hej1')
+  act.mocks.serverConnection.push('msg hej2')
+  act.output.assertReceived('hej1', t.pass())
+  act.output.assertReceived('hej2', t.pass())
+})
+
 test('ack', (t) => {
   t.plan(1)
   let act = makeAct()

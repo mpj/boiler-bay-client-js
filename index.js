@@ -19,16 +19,13 @@ export default (deps, opts, command, topic) => {
     (push) => {
       if(!consumeSent) {
         consumeSent = true
+        _(conn).map(x => x.replace('msg ','')).each(x => push(x))
         conn.write(
           'consume ' + topic + ' ' +
           deps.uuid().replace(/\-/g,'') + ' ' +
           (command === 'replay' ? 'smallest' : 'largest') +
           '\n')
       }
-      
-      _(conn).pull(function (err, x) {
-        push(x.replace('msg ',''))
-      })
     }
   )
 

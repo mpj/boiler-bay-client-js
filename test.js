@@ -8,7 +8,6 @@ import merge from 'mout/object/merge'
 let api = subject
 
 // TODO
-// * cosnumer group
 // * coerce errors
 // * prevent writing pre-ready
 // * dont' send consume command until connected
@@ -34,21 +33,23 @@ test('connection (appender)', (t) => {
   t.ok(act.didSetCorrectEncoding())
 })
 
-test('append', (t) => {
-  t.plan(2)
-  let act = makeAct()
-  act.makeMain()
-  act.makeAppender()
-  act.sendSceneMessageToClient()
-  act.assertSceneMessageSent(t.pass)
-  act.mocks.serverConnection.assertNotReceived(/consume/, t.pass)
-})
 
 
-test('replay', (t) => {
+test('replay (fromStart: true)', (t) => {
   t.plan(2)
   let act = makeAct()
   act.scene.playerOpts = { fromStart: true }
+  act.makeMain()
+  act.makePlayer()
+  act.mocks.serverConnection.push('msg hej')
+  act.output.assertReceived('hej', t.pass())
+  act.assertReceivedCorrectConsume(t.pass)
+})
+
+test('replay (custom id)', (t) => {
+  t.plan(2)
+  let act = makeAct()
+  act.scene.playerID = 'myid'
   act.makeMain()
   act.makePlayer()
   act.mocks.serverConnection.push('msg hej')
@@ -103,6 +104,8 @@ let makeAct = (constructorScene) => {
     topic: 'mytopic',
     generatedUUID: '6c84fb90-12c4-11e1-840d-7b25c5ee775a',
     playerOpts: null,
+    playerId: null,
+    playerFromStart: null,
     messageToSend: 'whut',
     command: 'replay',
     expectedOffset: 'smallest'
@@ -125,8 +128,19 @@ let makeAct = (constructorScene) => {
       act.instances.main.appender(act.scene.topic)
 
   act.makePlayer = () => {
+
+    let opts
+    if (act.scene.playerID) {
+      opts = opts || {}
+      opts.id = act.scene.playerID
+    }
+    if (act.scene.playerFromStart) {
+      opts = opts || {}
+      opts.fromStart = act.scene.playerFromStart
+    }
+
     act.instances.player =
-      act.instances.main.player(act.scene.topic, act.scene.playerOpts)
+      act.instances.main.player(act.scene.topic, opts)
     act.instances.player.pipe(act.output)
   }
 
@@ -164,7 +178,8 @@ let makeAct = (constructorScene) => {
     act.mocks.serverConnection.assertReceived(
       'consume ' +
       act.scene.topic + ' ' +
-      act.scene.generatedUUID.replace(/\-/g,'') + ' ' +
+      (act.scene.playerID || act.scene.generatedUUID.replace(/\-/g,'')) +
+      ' ' +
       act.scene.expectedOffset + '\n',
       done
     )

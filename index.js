@@ -1,36 +1,56 @@
 import _ from 'highland'
 import duplex from './object-duplex'
+import merge from 'mout/object/merge'
 
-export default (deps, opts, command, topic) => {
-  let conn = deps.net.connect(opts.port, opts.host)
-  conn.setEncoding('utf8')
+export default (deps, opts) => {
 
-  let consumeSent = false
+  let connect = () => {
+    let connection = deps.net.connect(opts.port, opts.host)
+    connection.setEncoding('utf8')
+    return connection
+  }
 
-  let api = duplex(
-    (x, cb) => {
-      conn.write(
-        'send ' +
-        topic + ' ' +
-        deps.uuid().replace(/\-/g, '') + ' ' +
-        x + '\n')
-      cb()
+  let connection = null
+
+  let api = {
+    player: (channel, opts) => {
+
+      opts = merge({
+        id: deps.uuid().replace(/\-/g,''),
+        fromStart: true
+      }, opts)
+
+      connection = connect()
+
+      let output = _(connection)
+        .map(x => x.replace('msg ',''))
+
+      connection.write(
+        'consume ' + channel + ' ' +
+        opts.id + ' ' +
+        (opts.fromStart ? 'smallest' : 'largest') +
+        '\n')
+
+      output.ack = () => connection.write('ack\n')
+      return output
+
     },
-    (push) => {
-      if(!consumeSent) {
-        consumeSent = true
-        _(conn).map(x => x.replace('msg ','')).each(x => push(x))
-        conn.write(
-          'consume ' + topic + ' ' +
-          deps.uuid().replace(/\-/g,'') + ' ' +
-          (command === 'replay' ? 'smallest' : 'largest') +
-          '\n')
-      }
-    }
-  )
+    appender: (topic) => {
+      connection = connect()
+      let input = _()
+      input
+        .map(x =>
+          'send ' +
+          topic + ' ' +
+          deps.uuid().replace(/\-/g, '') + ' ' +
+          x + '\n'
+        ).pipe(connection)
+      return input
+    },
 
-  api.ack = () =>
-    conn.write('ack\n')
+
+  }
 
   return api
+
 }

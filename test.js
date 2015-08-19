@@ -5,62 +5,79 @@ import sinon from 'sinon'
 import liar from './liar'
 import merge from 'mout/object/merge'
 
+let api = subject
 
 // TODO
-// * try for real
+// * cosnumer group
 // * coerce errors
 // * prevent writing pre-ready
+// * dont' send consume command until connected
 // * maybe: break out liar
+// * test for concurrect connectionss
 
-test('connection', (t) => {
+
+test('connection (player)', (t) => {
   t.plan(2)
   let act = makeAct()
-  act.begin()
+  act.makeMain()
+  act.makePlayer()
   t.ok(act.connectedWithRightParameters())
   t.ok(act.didSetCorrectEncoding())
 })
 
-test('write', (t) => {
+test('connection (appender)', (t) => {
   t.plan(2)
   let act = makeAct()
-  let str = act.beginNoRead()
-  act.sendMessageToClient()
-  act.assertMessageSent(t.pass)
+  act.makeMain()
+  act.makeAppender()
+  t.ok(act.connectedWithRightParameters())
+  t.ok(act.didSetCorrectEncoding())
+})
+
+test('append', (t) => {
+  t.plan(2)
+  let act = makeAct()
+  act.makeMain()
+  act.makeAppender()
+  act.sendSceneMessageToClient()
+  act.assertSceneMessageSent(t.pass)
   act.mocks.serverConnection.assertNotReceived(/consume/, t.pass)
 })
 
-test('read (replay)', (t) => {
+
+test('replay', (t) => {
   t.plan(2)
-  let act = makeAct({
-    command: 'replay',
-    expectedOffset: 'smallest'
-  })
-  act.begin()
+  let act = makeAct()
+  act.scene.playerOpts = { fromStart: true }
+  act.makeMain()
+  act.makePlayer()
   act.mocks.serverConnection.push('msg hej')
   act.output.assertReceived('hej', t.pass())
   act.assertReceivedCorrectConsume(t.pass)
 })
 
 
-test('read (play)', (t) => {
+
+test('play', (t) => {
   t.plan(2)
-  let act = makeAct({
-    command: 'play',
-    expectedOffset: 'largest'
-  })
-  act.begin()
+  let act = makeAct()
+  act.playerOpts = { fromStart: false }
+  act.expectedOffset = 'largest'
+  act.makeMain()
+  act.makePlayer()
   act.mocks.serverConnection.push('msg hej')
   act.output.assertReceived('hej', t.pass())
   act.assertReceivedCorrectConsume(t.pass)
 })
 
-test('read (play, multiple)', (t) => {
+
+test('play, multiple', (t) => {
   t.plan(2)
-  let act = makeAct({
-    command: 'play',
-    expectedOffset: 'largest'
-  })
-  act.begin()
+  let act = makeAct()
+  act.playerOpts = { fromStart: false }
+  act.expectedOffset = 'largest'
+  act.makeMain()
+  act.makePlayer()
   act.mocks.serverConnection.push('msg hej1')
   act.mocks.serverConnection.push('msg hej2')
   act.output.assertReceived('hej1', t.pass())
@@ -70,8 +87,9 @@ test('read (play, multiple)', (t) => {
 test('ack', (t) => {
   t.plan(1)
   let act = makeAct()
-  let api = act.begin()
-  api.ack()
+  act.makeMain()
+  act.makePlayer()
+  act.instances.player.ack()
   act.mocks.serverConnection.assertReceived('ack\n', t.pass)
 })
 
@@ -84,6 +102,7 @@ let makeAct = (constructorScene) => {
     host: '192.168.99.100',
     topic: 'mytopic',
     generatedUUID: '6c84fb90-12c4-11e1-840d-7b25c5ee775a',
+    playerOpts: null,
     messageToSend: 'whut',
     command: 'replay',
     expectedOffset: 'smallest'
@@ -101,37 +120,40 @@ let makeAct = (constructorScene) => {
 
   act.output = liar()
 
-  act.beginNoRead = () => {
+  act.makeAppender = () =>
+    act.instances.appender =
+      act.instances.main.appender(act.scene.topic)
+
+  act.makePlayer = () => {
+    act.instances.player =
+      act.instances.main.player(act.scene.topic, act.scene.playerOpts)
+    act.instances.player.pipe(act.output)
+  }
+
+  act.makeMain = () => {
     act.mocks.net.connect
       .withArgs(act.scene.port, act.scene.host)
       .returns(act.mocks.serverConnection)
 
     act.mocks.uuid.returns(act.scene.generatedUUID)
 
-    act.instance = subject({
-      net: act.mocks.net,
-      uuid: act.mocks.uuid
-    }, {
-      host: act.scene.host,
-      port: act.scene.port
-    }, act.scene.command, act.scene.topic)
+    act.instances = {
+      main: subject({
+        net: act.mocks.net,
+        uuid: act.mocks.uuid
+      }, {
+        host: act.scene.host,
+        port: act.scene.port
+      })
+    }
 
-    return act.instance
   }
 
-  act.begin = () => {
 
-    act.beginNoRead()
+  act.sendSceneMessageToClient = () =>
+    _([act.scene.messageToSend]).pipe(act.instances.appender)
 
-    act.instance.pipe(act.output)
-
-    return act.instance
-  }
-
-  act.sendMessageToClient = () =>
-    _([act.scene.messageToSend]).pipe(act.instance)
-
-  act.assertMessageSent = (done) =>
+  act.assertSceneMessageSent = (done) =>
     act.mocks.serverConnection.assertReceived(
       'send ' + act.scene.topic + ' ' +
       act.scene.generatedUUID.replace(/\-/g,'') +

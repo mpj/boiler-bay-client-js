@@ -24,6 +24,7 @@ export default (deps, opts) => {
 
       let output = _(connection)
         .map(x => x.replace('msg ',''))
+        .map(JSON.parse)
 
       connection.write(
         'consume ' + channel + ' ' +
@@ -43,7 +44,7 @@ export default (deps, opts) => {
           'send ' +
           topic + ' ' +
           deps.uuid().replace(/\-/g, '') + ' ' +
-          x + '\n'
+          JSON.stringify(x) + '\n'
         ).pipe(connection)
       return input
     },

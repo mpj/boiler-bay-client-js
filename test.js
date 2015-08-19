@@ -13,85 +13,88 @@ let api = subject
 // * dont' send consume command until connected
 // * maybe: break out liar
 // * test for concurrect connectionss
+// * prevent writing non-json object (server?)
 
 
-test('connection (player)', (t) => {
-  t.plan(2)
-  let act = makeAct()
-  act.makeMain()
-  act.makePlayer()
-  t.ok(act.connectedWithRightParameters())
-  t.ok(act.didSetCorrectEncoding())
-})
-
-test('connection (appender)', (t) => {
-  t.plan(2)
-  let act = makeAct()
-  act.makeMain()
-  act.makeAppender()
-  t.ok(act.connectedWithRightParameters())
-  t.ok(act.didSetCorrectEncoding())
-})
-
-
-
-test('replay (fromStart: true)', (t) => {
-  t.plan(2)
+test('play (fromStart: true)', (t) => {
+  t.plan(4)
   let act = makeAct()
   act.scene.playerOpts = { fromStart: true }
   act.makeMain()
   act.makePlayer()
-  act.mocks.serverConnection.push('msg hej')
-  act.output.assertReceived('hej', t.pass())
+  act.mocks.serverConnection.push('msg ' + JSON.stringify({hello: 'world'}))
+  act.output.assertReceived({'hello': 'world'}, t.pass())
   act.assertReceivedCorrectConsume(t.pass)
+  t.ok(act.connectedWithRightParameters())
+  t.ok(act.didSetCorrectEncoding())
 })
 
 test('replay (custom id)', (t) => {
-  t.plan(2)
+  t.plan(4)
   let act = makeAct()
   act.scene.playerID = 'myid'
   act.makeMain()
   act.makePlayer()
-  act.mocks.serverConnection.push('msg hej')
-  act.output.assertReceived('hej', t.pass())
+  act.mocks.serverConnection.push('msg ' + JSON.stringify({hello: 'world'}))
+  act.output.assertReceived({'hello': 'world'}, t.pass())
   act.assertReceivedCorrectConsume(t.pass)
+  t.ok(act.connectedWithRightParameters())
+  t.ok(act.didSetCorrectEncoding())
 })
 
 
 
-test('play', (t) => {
-  t.plan(2)
+test('play (fromStart: false)', (t) => {
+  t.plan(4)
   let act = makeAct()
   act.playerOpts = { fromStart: false }
   act.expectedOffset = 'largest'
   act.makeMain()
   act.makePlayer()
-  act.mocks.serverConnection.push('msg hej')
-  act.output.assertReceived('hej', t.pass())
+  act.mocks.serverConnection.push('msg ' + JSON.stringify({hello: 'world'}))
+  act.output.assertReceived({'hello': 'world'}, t.pass())
   act.assertReceivedCorrectConsume(t.pass)
+  t.ok(act.connectedWithRightParameters())
+  t.ok(act.didSetCorrectEncoding())
 })
 
 
 test('play, multiple', (t) => {
-  t.plan(2)
+  t.plan(4)
   let act = makeAct()
   act.playerOpts = { fromStart: false }
   act.expectedOffset = 'largest'
   act.makeMain()
   act.makePlayer()
-  act.mocks.serverConnection.push('msg hej1')
-  act.mocks.serverConnection.push('msg hej2')
-  act.output.assertReceived('hej1', t.pass())
-  act.output.assertReceived('hej2', t.pass())
+  act.mocks.serverConnection.push('msg ' + JSON.stringify({hello: 'world'}))
+  act.mocks.serverConnection.push('msg ' + JSON.stringify({hello: 'worlds'}))
+  act.output.assertReceived({hello: 'world'}, t.pass())
+  act.output.assertReceived({hello: 'worlds'}, t.pass())
+  t.ok(act.connectedWithRightParameters())
+  t.ok(act.didSetCorrectEncoding())
 })
 
+
 test('ack', (t) => {
-  t.plan(1)
+  t.plan(3)
   let act = makeAct()
   act.makeMain()
   act.makePlayer()
   act.instances.player.ack()
   act.mocks.serverConnection.assertReceived('ack\n', t.pass)
+  t.ok(act.connectedWithRightParameters())
+  t.ok(act.didSetCorrectEncoding())
+})
+
+test('appender', (t) => {
+  t.plan(3)
+  let act = makeAct()
+  act.makeMain()
+  act.makeAppender()
+  act.sendSceneMessageToClient()
+  act.assertSceneMessageSent(t.pass)
+  t.ok(act.connectedWithRightParameters())
+  t.ok(act.didSetCorrectEncoding())
 })
 
 let makeAct = (constructorScene) => {
@@ -106,7 +109,7 @@ let makeAct = (constructorScene) => {
     playerOpts: null,
     playerId: null,
     playerFromStart: null,
-    messageToSend: 'whut',
+    messageToSend: { hello: 'world' },
     command: 'replay',
     expectedOffset: 'smallest'
   }, constructorScene)
@@ -171,7 +174,7 @@ let makeAct = (constructorScene) => {
     act.mocks.serverConnection.assertReceived(
       'send ' + act.scene.topic + ' ' +
       act.scene.generatedUUID.replace(/\-/g,'') +
-      ' ' + act.scene.messageToSend+'\n',
+      ' ' + JSON.stringify(act.scene.messageToSend)+'\n',
       done)
 
   act.assertReceivedCorrectConsume = (done) =>

@@ -12,6 +12,17 @@ export default (deps, opts) => {
 
   let connection = null
 
+  let stringsToErrors = () => _.pipeline(
+    _.invoke('match', [/^error\s(\S+)\s(.+)/]),
+    _.compact(),
+    _.map(x => {
+      let message = x[2]
+      let err = new Error(message)
+      err.code = x[1]
+      return err
+    })
+  )
+
   let api = {
     player: (channel, opts) => {
 
@@ -30,14 +41,7 @@ export default (deps, opts) => {
 
       _(connection)
         .fork()
-        .invoke('match', [/^error\s(\S+)\s(.+)/])
-        .compact()
-        .map(x => {
-          let message = x[2]
-          let err = new Error(message)
-          err.code = x[1]
-          return err
-        })
+        .through(stringsToErrors())
         .each(x => output.emit('error', x))
 
       connection.write(
@@ -62,14 +66,7 @@ export default (deps, opts) => {
         ).pipe(connection)
 
       _(connection)
-        .invoke('match', [/^error\s(\S+)\s(.+)/])
-        .compact()
-        .map(x => {
-          let message = x[2]
-          let err = new Error(message)
-          err.code = x[1]
-          return err
-        })
+        .through(stringsToErrors())
         .each(x => input.emit('error', x))
 
       return input

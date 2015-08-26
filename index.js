@@ -23,9 +23,22 @@ export default (deps, opts) => {
       connection = connect()
 
       let output = _(connection)
+        .fork()
         .filter(x => x.match(/^msg/))
         .map(x => x.replace('msg ',''))
         .map(JSON.parse)
+
+      _(connection)
+        .fork()
+        .invoke('match', [/^error\s(\S+)\s(.+)/])
+        .compact()
+        .map(x => {
+          let message = x[2]
+          let err = new Error(message)
+          err.code = x[1]
+          return err
+        })
+        .each(x => output.emit('error', x))
 
       connection.write(
         'consume ' + channel + ' ' +
@@ -58,8 +71,6 @@ export default (deps, opts) => {
           return err
         })
         .each(x => input.emit('error', x))
-
-
 
       return input
     },

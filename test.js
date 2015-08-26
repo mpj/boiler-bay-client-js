@@ -75,6 +75,17 @@ test('play, multiple', (t) => {
   t.ok(act.didSetCorrectEncoding())
 })
 
+test('play, failure', (t) => {
+  t.plan(2)
+  let act = makeAct()
+  act.makeMain()
+  act.makePlayer()
+  act.instances.player.on('error', (err) => {
+    t.equal(err.message, 'messagehere')
+    t.equal(err.code, 'codehere')
+  })
+  act.mocks.serverConnection.push('error codehere messagehere')
+})
 
 test('ack', (t) => {
   t.plan(3)
@@ -110,6 +121,7 @@ test('appender failure', (t) => {
   })
   act.mocks.serverConnection.push('error codehere messagehere')
 })
+
 
 
 

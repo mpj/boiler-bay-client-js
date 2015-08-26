@@ -47,6 +47,20 @@ export default (deps, opts) => {
           deps.uuid().replace(/\-/g, '') + ' ' +
           JSON.stringify(x) + '\n'
         ).pipe(connection)
+
+      _(connection)
+        .invoke('match', [/^error\s(\S+)\s(.+)/])
+        .compact()
+        .map(x => {
+          let message = x[2]
+          let err = new Error(message)
+          err.code = x[1]
+          return err
+        })
+        .each(x => input.emit('error', x))
+
+
+
       return input
     },
 

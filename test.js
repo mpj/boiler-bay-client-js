@@ -5,8 +5,6 @@ import sinon from 'sinon'
 import liar from './liar'
 import merge from 'mout/object/merge'
 
-let api = subject
-
 // TODO
 // * coerce errors
 // * prevent writing pre-ready
@@ -14,6 +12,7 @@ let api = subject
 // * maybe: break out liar
 // * test for concurrect connectionss
 // * prevent writing non-json object (server?)
+
 
 
 test('play (fromStart: true)', (t) => {
@@ -97,6 +96,19 @@ test('appender', (t) => {
   act.assertSceneMessageSent(t.pass)
   t.ok(act.connectedWithRightParameters())
   t.ok(act.didSetCorrectEncoding())
+})
+
+test('appender failure', (t) => {
+  t.plan(2)
+  let act = makeAct()
+  act.makeMain()
+  act.makeAppender()
+  act.sendSceneMessageToClient()
+  act.instances.appender.on('error', (err) => {
+    t.equal(err.message, 'messagehere')
+    t.equal(err.code, 'codehere')
+  })
+  act.mocks.serverConnection.push('error codehere messagehere')
 })
 
 

@@ -22,6 +22,8 @@ test('play (fromStart: true)', (t) => {
   act.scene.playerOpts = { fromStart: true }
   act.makeMain()
   act.makePlayer()
+  act.mocks.serverConnection.push('ready')
+  act.mocks.serverConnection.push('consume-started')
   act.mocks.serverConnection.push('msg ' + JSON.stringify({hello: 'world'}))
   act.output.assertReceived({'hello': 'world'}, t.pass())
   act.assertReceivedCorrectConsume(t.pass)
@@ -29,7 +31,7 @@ test('play (fromStart: true)', (t) => {
   t.ok(act.didSetCorrectEncoding())
 })
 
-test('replay (custom id)', (t) => {
+test('play (custom id)', (t) => {
   t.plan(4)
   let act = makeAct()
   act.scene.playerID = 'myid'
@@ -97,6 +99,8 @@ test('appender', (t) => {
   t.ok(act.didSetCorrectEncoding())
 })
 
+
+
 let makeAct = (constructorScene) => {
 
   let act = {}
@@ -110,7 +114,6 @@ let makeAct = (constructorScene) => {
     playerId: null,
     playerFromStart: null,
     messageToSend: { hello: 'world' },
-    command: 'replay',
     expectedOffset: 'smallest'
   }, constructorScene)
 

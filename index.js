@@ -23,6 +23,7 @@ export default (deps, opts) => {
       connection = connect()
 
       let output = _(connection)
+        .filter(x => x.match(/^msg/))
         .map(x => x.replace('msg ',''))
         .map(JSON.parse)
 

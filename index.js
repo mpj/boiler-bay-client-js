@@ -10,8 +10,6 @@ export default (deps, opts) => {
     return connection
   }
 
-  let connection = null
-
   let stringsToErrors = () => _.pipeline(
     _.invoke('match', [/^error\s(\S+)\s(.+)/]),
     _.compact(),
@@ -31,7 +29,7 @@ export default (deps, opts) => {
         fromStart: true
       }, opts)
 
-      connection = connect()
+      let connection = connect()
 
       let output = _(connection)
         .fork()
@@ -55,7 +53,7 @@ export default (deps, opts) => {
 
     },
     appender: (topic) => {
-      connection = connect()
+      let connection = connect()
       let input = _()
       input
         .map(x =>

@@ -121,7 +121,35 @@ test('appender failure', (t) => {
   act.mocks.serverConnection.push('error codehere messagehere')
 })
 
+test('player + appender', (t) => {
+  t.plan(3)
 
+  let net = { connect: sinon.stub() }
+  let uuid = sinon.stub()
+  let serverConnection1 = merge(liar(), {
+    setEncoding: sinon.stub()
+  })
+  let serverConnection2 = merge(liar(), {
+    setEncoding: sinon.stub()
+  })
+  uuid.onFirstCall().returns('randrand1')
+  uuid.onSecondCall().returns('randrand2')
+  net.connect.onFirstCall().returns(serverConnection1)
+  net.connect.onSecondCall().returns(serverConnection2)
+
+  let log = subject({ net, uuid }, { host: 'hello.com', port: 1234 })
+  let player = log.player('mytopic')
+  let appender = log.appender('mytopic')
+  appender.write({hello: 123})
+  player.ack()
+
+  serverConnection2.assertReceived(/send mytopic/, t.pass)
+  serverConnection1.assertReceived(/consume mytopic/, t.pass)
+  serverConnection1.assertReceived(/ack/, t.pass)
+
+
+
+})
 
 
 let makeAct = (constructorScene) => {

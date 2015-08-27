@@ -30,11 +30,25 @@ export default () => {
   api.assertReceivedTimes = (times, pattern, done) =>
     setTimeout(() =>
       fi(
-        receivedValues.filter(val => deepMatches(val, pattern)).length !== times,
+        receivedValues.filter(receivedValue =>
+          fi(
+            isRegExp(pattern),
+            () => pattern.test(
+              fi(
+                isObject(receivedValue),
+                () => JSON.stringify(receivedValue),
+                () => receivedValue.toString()
+              )
+            ),
+            () => deepMatches(receivedValue, pattern)
+          )
+        ).length !== times,
         () => {
           throw new assert.AssertionError({
             message:
-              'liar did not receive value matching the specified pattern the expected number of times ('+times+'):\n' + JSON.stringify(pattern, null, 2) +
+              'liar did not receive value matching the specified pattern the expected number of times ('+times+'):\n' + (isRegExp(pattern) ?
+                pattern.toString() :
+                JSON.stringify(pattern, null, 2)) +
               '\n\nActual received values:\n' +
               receivedValues
                 .map(x => JSON.stringify(x, null, 2))

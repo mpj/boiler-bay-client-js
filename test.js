@@ -6,7 +6,6 @@ import liar from './liar'
 import merge from 'mout/object/merge'
 
 // TODO
-// * coerce errors
 // * prevent writing pre-ready
 // * dont' send consume command until connected
 // * maybe: break out liar

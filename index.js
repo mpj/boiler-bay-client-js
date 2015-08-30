@@ -2,6 +2,8 @@ import _ from 'highland'
 import duplex from './object-duplex'
 import merge from 'mout/object/merge'
 import fi from './fi'
+
+
 export default (deps, opts) => {
 
   let connect = () => {
@@ -9,6 +11,14 @@ export default (deps, opts) => {
     connection.setEncoding('utf8')
     return connection
   }
+
+  let forkBy = (strm, evaluator) => {
+    let left = _(), right = _()
+    _(strm).each(x => evaluator(x) ? left.write(x) : right.write(x))
+    return [left, right]
+  }
+
+
 
   let errorRegExp = /^error\s(\S+)\s(.+)/
   let isError = str => !!str.match(errorRegExp)
@@ -37,11 +47,7 @@ export default (deps, opts) => {
         .map(x => x.replace('msg ',''))
         .map(JSON.parse)
 
-      let errors = _()
-      let messages = _()
-      _(connection)
-        .each(x =>
-          fi(isError(x), () => errors.write(x), () => messages.write(x)))
+      let [ errors, messages ] = forkBy(connection, isError)
 
       _(errors)
         .map(asErrorObject)
@@ -70,18 +76,12 @@ export default (deps, opts) => {
           JSON.stringify(x) + '\n'
         ).pipe(buffer)
 
-      let errors = _()
-      let messages = _()
-      _(connection)
-        .each((x) => fi(
-          x.match(/^error\s(\S+)\s(.+)/),
-          () => errors.write(x),
-          () => messages.write(x)))
+      let [ errors, messages ] = forkBy(connection, isError)
 
       _(messages)
         .filter(x => x === 'ready')
         .head()
-        .each(() => buffer.pipe(connection))
+        .pull(() => buffer.pipe(connection))
 
       _(errors)
         .map(asErrorObject)

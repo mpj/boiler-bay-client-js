@@ -34,6 +34,7 @@ test('play (custom id)', (t) => {
   act.scene.playerID = 'myid'
   act.makeMain()
   act.makePlayer()
+  act.mocks.serverConnection.push('ready')
   act.mocks.serverConnection.push('msg ' + JSON.stringify({hello: 'world'}))
   act.output.assertReceived({'hello': 'world'}, t.pass())
   act.assertReceivedCorrectConsume(t.pass)
@@ -50,6 +51,7 @@ test('play (fromStart: false)', (t) => {
   act.expectedOffset = 'largest'
   act.makeMain()
   act.makePlayer()
+  act.mocks.serverConnection.push('ready')
   act.mocks.serverConnection.push('msg ' + JSON.stringify({hello: 'world'}))
   act.output.assertReceived({'hello': 'world'}, t.pass())
   act.assertReceivedCorrectConsume(t.pass)
@@ -140,6 +142,7 @@ test('player + appender', (t) => {
   let log = subject({ net, uuid }, { host: 'hello.com', port: 1234 })
   let player = log.player('mytopic')
   let appender = log.appender('mytopic')
+  serverConnection1.push('ready')
   serverConnection2.push('ready')
   appender.write({hello: 123})
   player.ack()

@@ -38,23 +38,26 @@ export default (deps, opts) => {
 
       let connection = connect()
 
-      let output = _(connection)
-        .fork()
-        .filter(x => x.match(/^msg/))
-        .map(x => x.replace('msg ',''))
-        .map(JSON.parse)
-
-      let [ errors, others ] = forkBy(connection, isError)
+      let [ errors, nonErrors ] = forkBy(connection, isError)
 
       _(errors)
         .map(asErrorObject)
         .each(x => output.emit('error', x))
 
-      connection.write(
+      let [ readys, nonReadys ] = forkBy(nonErrors, x => x === 'ready')
+
+      _(readys).pull(() => connection.write(
         'consume ' + channel + ' ' +
         opts.id + ' ' +
         (opts.fromStart ? 'smallest' : 'largest') +
-        '\n')
+        '\n'))
+
+      let output = _(nonReadys)
+        .filter(x => x.match(/^msg/))
+        .map(x => x.replace('msg ',''))
+        .map(JSON.parse)
+
+
 
       output.ack = () => connection.write('ack\n')
       return output

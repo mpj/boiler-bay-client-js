@@ -12,14 +12,23 @@ export default (deps, opts) => {
     return connection
   }
 
-  let forkBy = (strm, evaluator) => {
-    let left = _(), right = _()
-    _(strm).each(x => evaluator(x) ? left.write(x) : right.write(x))
-    return [left, right]
+  let divide = (strm, filterMap) => {
+    let outMap = { }
+    Object.keys(filterMap)
+      .forEach(key => outMap[key] = _())
+    _(strm).each(data => {
+      Object.keys(filterMap)
+        .forEach(key => {
+          let matched = filterMap[key](data)
+          if (matched) outMap[key].write(data)
+        })
+    })
+    return outMap
   }
 
   let errorRegExp = /^error\s(\S+)\s(.+)/
   let isError = str => !!str.match(errorRegExp)
+
   let asErrorObject = str => {
     let m = str.match(errorRegExp)
     let message = m[2]
@@ -38,26 +47,30 @@ export default (deps, opts) => {
 
       let connection = connect()
 
-      let [ errors, nonErrors ] = forkBy(connection, isError)
+      let {
+        errors,
+        readys,
+        messages
+      } = divide(connection, {
+        errors: isError,
+        readys: x => x === 'ready',
+        messages: x => x.match(/^msg/)
+      })
 
       _(errors)
         .map(asErrorObject)
         .each(x => output.emit('error', x))
 
-      let [ readys, nonReadys ] = forkBy(nonErrors, x => x === 'ready')
+      _(readys).pull(() =>
+        connection.write(
+          'consume ' + channel + ' ' +
+          opts.id + ' ' +
+          (opts.fromStart ? 'smallest' : 'largest') +
+          '\n'))
 
-      _(readys).pull(() => connection.write(
-        'consume ' + channel + ' ' +
-        opts.id + ' ' +
-        (opts.fromStart ? 'smallest' : 'largest') +
-        '\n'))
-
-      let output = _(nonReadys)
-        .filter(x => x.match(/^msg/))
+      let output = _(messages)
         .map(x => x.replace('msg ',''))
         .map(JSON.parse)
-
-
 
       output.ack = () => connection.write('ack\n')
       return output
@@ -75,12 +88,12 @@ export default (deps, opts) => {
           JSON.stringify(x) + '\n'
         )
 
-      let [ errors, others ] = forkBy(connection, isError)
+      let { errors, readys } = divide(connection, {
+        errors: isError,
+        readys: x => x === 'ready'
+      })
 
-      _(others)
-        .filter(x => x === 'ready')
-        .head()
-        .pull(() => transformedInput.pipe(connection))
+      _(others).pull(() => transformedInput.pipe(connection))
 
       _(errors)
         .map(asErrorObject)

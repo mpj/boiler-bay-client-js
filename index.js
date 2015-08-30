@@ -1,7 +1,7 @@
 import _ from 'highland'
 import duplex from './object-duplex'
 import merge from 'mout/object/merge'
-
+import fi from './fi'
 export default (deps, opts) => {
 
   let connect = () => {
@@ -10,16 +10,16 @@ export default (deps, opts) => {
     return connection
   }
 
-  let stringsToErrors = () => _.pipeline(
-    _.invoke('match', [/^error\s(\S+)\s(.+)/]),
-    _.compact(),
-    _.map(x => {
-      let message = x[2]
-      let err = new Error(message)
-      err.code = x[1]
-      return err
-    })
-  )
+  let errorRegExp = /^error\s(\S+)\s(.+)/
+  let isError = str => !!str.match(errorRegExp)
+  let asErrorObject = str => {
+    let m = str.match(errorRegExp)
+    let message = m[2]
+    let err = new Error(message)
+    err.code = m[1]
+    return err
+  }
+
 
   let api = {
     player: (channel, opts) => {
@@ -37,9 +37,14 @@ export default (deps, opts) => {
         .map(x => x.replace('msg ',''))
         .map(JSON.parse)
 
+      let errors = _()
+      let messages = _()
       _(connection)
-        .fork()
-        .through(stringsToErrors())
+        .each(x =>
+          fi(isError(x), () => errors.write(x), () => messages.write(x)))
+
+      _(errors)
+        .map(asErrorObject)
         .each(x => output.emit('error', x))
 
       connection.write(
@@ -54,6 +59,8 @@ export default (deps, opts) => {
     },
     appender: (topic) => {
       let connection = connect()
+
+      let buffer = _()
       let input = _()
       input
         .map(x =>
@@ -61,10 +68,23 @@ export default (deps, opts) => {
           topic + ' ' +
           deps.uuid().replace(/\-/g, '') + ' ' +
           JSON.stringify(x) + '\n'
-        ).pipe(connection)
+        ).pipe(buffer)
 
+      let errors = _()
+      let messages = _()
       _(connection)
-        .through(stringsToErrors())
+        .each((x) => fi(
+          x.match(/^error\s(\S+)\s(.+)/),
+          () => errors.write(x),
+          () => messages.write(x)))
+
+      _(messages)
+        .filter(x => x === 'ready')
+        .head()
+        .each(() => buffer.pipe(connection))
+
+      _(errors)
+        .map(asErrorObject)
         .each(x => input.emit('error', x))
 
       return input

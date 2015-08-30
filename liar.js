@@ -65,40 +65,38 @@ export default () => {
   api.assertReceived = partial(api.assertReceivedTimes, 1)
 
   api.assertNotReceived = (pattern, done) =>
-    setTimeout(() =>
-      fi(
-        receivedValues.filter(receivedValue =>
-          fi(
-            isRegExp(pattern),
-            () => pattern.test(
-              fi(
-                isObject(receivedValue),
-                () => JSON.stringify(receivedValue),
-                () => receivedValue.toString()
-              )
-            ),
-            () => deepMatches(receivedValue, pattern)
-          )
-        ).length > 0,
-        () => {
-          throw new assert.AssertionError({
-            message:
-              'liar received a value matching the specified pattern:\n' +
-              (isRegExp(pattern) ?
-                pattern.toString() :
-                JSON.stringify(pattern, null, 2)) +
-              '\n\nActual received values:\n' +
-              receivedValues
-                .map(x => JSON.stringify(x, null, 2))
-                .join('\n') +
-              '\n'
-            ,
-            expected: pattern
-          })
-        },
-        done
-      )
-    , 500)
+    fi(
+      receivedValues.filter(receivedValue =>
+        fi(
+          isRegExp(pattern),
+          () => pattern.test(
+            fi(
+              isObject(receivedValue),
+              () => JSON.stringify(receivedValue),
+              () => receivedValue.toString()
+            )
+          ),
+          () => deepMatches(receivedValue, pattern)
+        )
+      ).length > 0,
+      () => {
+        throw new assert.AssertionError({
+          message:
+            'liar received a value matching the specified pattern:\n' +
+            (isRegExp(pattern) ?
+              pattern.toString() :
+              JSON.stringify(pattern, null, 2)) +
+            '\n\nActual received values:\n' +
+            receivedValues
+              .map(x => JSON.stringify(x, null, 2))
+              .join('\n') +
+            '\n'
+          ,
+          expected: pattern
+        })
+      },
+      done
+    )
 
   api.debug = (name = 'debug') =>
     setTimeout(() => {

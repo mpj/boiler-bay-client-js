@@ -6,7 +6,6 @@ import liar from './liar'
 import merge from 'mout/object/merge'
 
 // TODO
-// * prevent writing pre-ready
 // * dont' send consume command until connected
 // * maybe: break out liar
 // * test for concurrect connectionss
@@ -103,6 +102,7 @@ test('appender', (t) => {
   act.makeMain()
   act.makeAppender()
   act.sendSceneMessageToClient()
+  act.mocks.serverConnection.push('ready')
   act.assertSceneMessageSent(t.pass)
   t.ok(act.connectedWithRightParameters())
   t.ok(act.didSetCorrectEncoding())
@@ -140,6 +140,7 @@ test('player + appender', (t) => {
   let log = subject({ net, uuid }, { host: 'hello.com', port: 1234 })
   let player = log.player('mytopic')
   let appender = log.appender('mytopic')
+  serverConnection2.push('ready')
   appender.write({hello: 123})
   player.ack()
 
@@ -147,8 +148,25 @@ test('player + appender', (t) => {
   serverConnection1.assertReceived(/consume mytopic/, t.pass)
   serverConnection1.assertReceived(/ack/, t.pass)
 
+})
 
+test('dont write pre-ready', (t) => {
+  t.plan(2)
 
+  let net = { connect: sinon.stub() }
+  let uuid = sinon.stub()
+  let serverConnection = merge(liar(), {
+    setEncoding: sinon.stub()
+  })
+  uuid.onFirstCall().returns('randrand1')
+  net.connect.onFirstCall().returns(serverConnection)
+
+  let log = subject({ net, uuid }, { host: 'hello.com', port: 1234 })
+  let appender = log.appender('mytopic')
+  appender.write({hello: 123})
+  serverConnection.assertNotReceived(/send/, t.pass)
+  serverConnection.push('ready')
+  serverConnection.assertReceived(/send mytopic/, t.pass)
 })
 
 

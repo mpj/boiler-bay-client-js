@@ -18,8 +18,6 @@ export default (deps, opts) => {
     return [left, right]
   }
 
-
-
   let errorRegExp = /^error\s(\S+)\s(.+)/
   let isError = str => !!str.match(errorRegExp)
   let asErrorObject = str => {
@@ -29,7 +27,6 @@ export default (deps, opts) => {
     err.code = m[1]
     return err
   }
-
 
   let api = {
     player: (channel, opts) => {
@@ -47,7 +44,7 @@ export default (deps, opts) => {
         .map(x => x.replace('msg ',''))
         .map(JSON.parse)
 
-      let [ errors, messages ] = forkBy(connection, isError)
+      let [ errors, others ] = forkBy(connection, isError)
 
       _(errors)
         .map(asErrorObject)
@@ -66,22 +63,21 @@ export default (deps, opts) => {
     appender: (topic) => {
       let connection = connect()
 
-      let buffer = _()
       let input = _()
-      input
+      let transformedInput = input
         .map(x =>
           'send ' +
           topic + ' ' +
           deps.uuid().replace(/\-/g, '') + ' ' +
           JSON.stringify(x) + '\n'
-        ).pipe(buffer)
+        )
 
-      let [ errors, messages ] = forkBy(connection, isError)
+      let [ errors, others ] = forkBy(connection, isError)
 
-      _(messages)
+      _(others)
         .filter(x => x === 'ready')
         .head()
-        .pull(() => buffer.pipe(connection))
+        .pull(() => transformedInput.pipe(connection))
 
       _(errors)
         .map(asErrorObject)
